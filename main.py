@@ -1,60 +1,51 @@
-import ollama
+from router import route
 from skills.screenshot import take_screenshot
 from skills.open_app import open_target
 from skills.discord_send import send_discord_message
 from skills.web_search import search_and_summarize
 
-MODEL = "llama3.1:8b"
 
-SYSTEM_PROMPT = """You are JARVIS, a local voice assistant running on the user's PC.
-Rules:
-- Keep replies short and conversational (1-3 sentences), since they will be spoken aloud via text-to-speech.
-- Never use markdown, bullet points, or code formatting in your replies.
-- Be helpful, direct, and slightly witty, but not overly chatty.
-- If you don't know something or can't do something, say so briefly instead of guessing.
-"""
+def execute_action(decision: dict) -> str:
+    """Takes the router's decision dict and actually calls the right skill function."""
 
-def ask_ollama(prompt: str) -> str:
-    response = ollama.chat(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    return response["message"]["content"]
+    action = decision.get("action")
+    args = decision.get("args", {})
+
+    if action == "take_screenshot":
+        return take_screenshot()
+
+    elif action == "open_target":
+        return open_target(args.get("name", ""))
+
+    elif action == "send_discord_message":
+        return send_discord_message(
+            args.get("contact_name", ""),
+            args.get("message", "")
+        )
+
+    elif action == "search_and_summarize":
+        return search_and_summarize(args.get("query", ""))
+
+    elif action == "general_chat":
+        return args.get("reply", "I'm not sure how to respond to that.")
+
+    else:
+        return "I'm not sure what you want me to do."
+
 
 def main():
-    print("JARVIS-Local (text mode) — type 'quit' to exit, 'screenshot' or 'open <name>' to test skills")
+    print("JARVIS-Local — type 'quit' to exit")
     while True:
         user_input = input("You: ")
         if user_input.lower() in ("quit", "exit"):
             break
-        elif user_input.lower() == "screenshot":
-            result = take_screenshot()
-            print(f"JARVIS: {result}")
-        elif user_input.lower().startswith("open "):
-            target_name = user_input[5:]
-            result = open_target(target_name)
-            print(f"JARVIS: {result}")
-        elif user_input.lower().startswith("dm ") and " on discord" in user_input.lower():
-            # format: dm <name> on discord | <message>
-            try:
-                rest = user_input[3:]  # strip "dm "
-                rest = rest.lower().replace(" on discord", "", 1)  # strip platform marker
-                name, message = rest.split("|", 1)
-                result = send_discord_message(name.strip(), message.strip())
-                print(f"JARVIS: {result}")
-            except ValueError:
-                print("JARVIS: Use format: dm <name> on discord | <message>")
 
-        elif user_input.lower().startswith("search "):
-            query = user_input[7:]
-            result = search_and_summarize(query, max_results=7)
-            print(f"JARVIS: {result}")
-        else:
-            reply = ask_ollama(user_input)
-            print(f"JARVIS: {reply}")
+        decision = route(user_input)
+        print(f"[DEBUG] Router decided: {decision}")  # temporary, remove once trusted
+
+        result = execute_action(decision)
+        print(f"JARVIS: {result}")
+
 
 if __name__ == "__main__":
     main()

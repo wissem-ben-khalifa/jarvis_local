@@ -1,6 +1,8 @@
 import ollama
 from skills.screenshot import take_screenshot
 from skills.open_app import open_target
+from skills.discord_send import send_discord_message
+from skills.web_search import search_and_summarize
 
 MODEL = "llama3.1:8b"
 
@@ -34,6 +36,21 @@ def main():
         elif user_input.lower().startswith("open "):
             target_name = user_input[5:]
             result = open_target(target_name)
+            print(f"JARVIS: {result}")
+        elif user_input.lower().startswith("dm ") and " on discord" in user_input.lower():
+            # format: dm <name> on discord | <message>
+            try:
+                rest = user_input[3:]  # strip "dm "
+                rest = rest.lower().replace(" on discord", "", 1)  # strip platform marker
+                name, message = rest.split("|", 1)
+                result = send_discord_message(name.strip(), message.strip())
+                print(f"JARVIS: {result}")
+            except ValueError:
+                print("JARVIS: Use format: dm <name> on discord | <message>")
+
+        elif user_input.lower().startswith("search "):
+            query = user_input[7:]
+            result = search_and_summarize(query, max_results=7)
             print(f"JARVIS: {result}")
         else:
             reply = ask_ollama(user_input)

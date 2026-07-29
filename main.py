@@ -1,4 +1,5 @@
 import ollama
+from skills.screenshot import take_screenshot
 
 MODEL = "llama3.1:8b"
 
@@ -21,13 +22,17 @@ def ask_ollama(prompt: str) -> str:
     return response["message"]["content"]
 
 def main():
-    print("JARVIS-Local (text mode) — type 'quit' to exit")
+    print("JARVIS-Local (text mode) — type 'quit' to exit, 'screenshot' to test the skill")
     while True:
         user_input = input("You: ")
         if user_input.lower() in ("quit", "exit"):
             break
-        reply = ask_ollama(user_input)
-        print(f"JARVIS: {reply}")
+        elif user_input.lower() == "screenshot":
+            result = take_screenshot()
+            print(f"JARVIS: {result}")
+        else:
+            reply = ask_ollama(user_input)
+            print(f"JARVIS: {reply}")
 
 if __name__ == "__main__":
     main()

@@ -35,6 +35,11 @@ Available actions:
    When defaulting here for unclear input, ask a short clarifying question in "reply"
    instead of guessing.
 
+6. "stop_listening" — args: {}
+   Use ONLY when the user clearly wants to end the conversation / shut down / stop
+   the assistant entirely — e.g. "quit", "stop", "shut down", "that's all for now",
+   "goodbye", "exit". Do NOT use this for the user just pausing or being unclear.
+
 Examples:
 User: "take a screenshot"
 {"action": "take_screenshot", "args": {}}
@@ -53,6 +58,12 @@ User: "hello"
 
 User: "clear"
 {"action": "general_chat", "args": {"reply": "Not sure what you mean by that — could you clarify?"}}
+
+User: "quit"
+{"action": "stop_listening", "args": {}}
+
+User: "that's all thanks, shut down"
+{"action": "stop_listening", "args": {}}
 
 Rules:
 - Always respond with valid JSON only — nothing before or after it.

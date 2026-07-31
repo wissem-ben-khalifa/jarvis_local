@@ -6,7 +6,6 @@ import os
 import glob
 
 pyautogui.PAUSE = 0.3
-DEBUG_DIR = "debug_screenshots"
 
 
 def find_discord_path():
@@ -37,11 +36,6 @@ def focus_window(win):
         pass
 
 
-def _debug_shot(label: str):
-    os.makedirs(DEBUG_DIR, exist_ok=True)
-    pyautogui.screenshot().save(os.path.join(DEBUG_DIR, f"{label}.png"))
-
-
 def send_discord_message(contact_name: str, message: str) -> str:
     """Opens Discord (if not already open), searches for a contact by name,
     and sends them a message as if typed by the user."""
@@ -59,26 +53,20 @@ def send_discord_message(contact_name: str, message: str) -> str:
             return "I couldn't open Discord."
 
     focus_window(win)
-    _debug_shot("1_after_focus")
 
     pyautogui.hotkey("ctrl", "k")
     time.sleep(0.5)
-    _debug_shot("2_after_search_open")
 
     pyautogui.typewrite(contact_name, interval=0.03)
     time.sleep(1)
-    _debug_shot("3_after_typing_name")
 
     pyautogui.press("enter")
     time.sleep(1)
-    _debug_shot("4_after_enter")
 
     pyautogui.typewrite(message, interval=0.02)
     time.sleep(0.5)
-    _debug_shot("5_after_typing_message")
 
     pyautogui.press("enter")
     time.sleep(0.5)
-    _debug_shot("6_after_send")
 
     return f"Sent your message to {contact_name}."

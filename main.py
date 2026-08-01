@@ -5,6 +5,7 @@ from skills.screenshot import take_screenshot
 from skills.open_app import open_target
 from skills.discord_send import send_discord_message
 from skills.web_search import search_and_summarize
+from skills.vision import see_screen
 from skills.speak import speak
 from skills.listen import listen
 from skills.wake_word import wait_for_wake_word
@@ -75,6 +76,9 @@ def execute_action(decision: dict) -> str:
 
     elif action == "search_and_summarize":
         return search_and_summarize(args.get("query", ""))
+
+    elif action == "see_screen":
+        return see_screen(args.get("question", "Describe what's currently on the screen."))
 
     elif action == "general_chat":
         return args.get("reply", "I'm not sure how to respond to that.")

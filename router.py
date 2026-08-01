@@ -45,6 +45,12 @@ Available actions:
    Use ONLY when the user clearly wants to end the conversation / shut down / stop
    the assistant entirely. When used, it should be the ONLY action in the list.
 
+7. "see_screen" — args: {"question": "<what to look for or ask about the screen>"}
+   Use when the user asks JARVIS to look at, describe, read, or check something on
+   their screen — e.g. "what's on my screen", "read this error for me", "what app is open",
+   "can you see what this says". If no specific question is implied, use a generic
+   question like "Describe what's currently on the screen."
+
 Examples:
 User: "take a screenshot"
 {"actions": [{"action": "take_screenshot", "args": {}}]}
@@ -75,6 +81,12 @@ User: "clear"
 
 User: "quit"
 {"actions": [{"action": "stop_listening", "args": {}}]}
+
+User: "what's on my screen right now"
+{"actions": [{"action": "see_screen", "args": {"question": "Describe what's currently on the screen."}}]}
+
+User: "can you read this error message for me"
+{"actions": [{"action": "see_screen", "args": {"question": "Read and explain any error message visible on the screen."}}]}
 
 Rules:
 - Always respond with valid JSON only — nothing before or after it.

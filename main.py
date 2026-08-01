@@ -38,6 +38,7 @@ def build_confirmation_prompt(decision: dict) -> str:
 
     return "Are you sure you want me to do that?"
 
+
 GREETING_SYSTEM_PROMPT = """You are JARVIS, a voice assistant that was just activated by the user saying "Hey Jarvis."
 Respond with a SHORT greeting acknowledging you're ready to help, 3-8 words max.
 Vary your wording each time — don't always say the same thing.
@@ -82,6 +83,54 @@ def execute_action(decision: dict) -> str:
         return "I'm not sure what you want me to do."
 
 
+def process_single_action(decision: dict) -> bool:
+    """Handles confirmation (if needed) and execution for one action.
+    Returns False if the whole batch should stop (interrupt or stop_listening),
+    True to continue to the next action in the list."""
+
+    action = decision.get("action")
+
+    if action == "stop_listening":
+        print("JARVIS: Shutting down. Goodbye.")
+        speak("Shutting down. Goodbye.")
+        return False
+
+    if action in CONFIRMABLE_ACTIONS:
+        confirmation_question = build_confirmation_prompt(decision)
+        print(f"JARVIS: {confirmation_question}")
+        speak(confirmation_question)
+
+        if is_interrupted():
+            clear_interrupt()
+            return False
+
+        time.sleep(1.5)
+
+        confirmation_reply = listen()
+        print(f"You said: {confirmation_reply}")
+
+        if is_interrupted():
+            clear_interrupt()
+            return False
+
+        if not is_affirmative(confirmation_reply):
+            print("JARVIS: Okay, cancelled.")
+            speak("Okay, cancelled.")
+            time.sleep(1.5)
+            return True  # skip this action, but continue with any remaining ones
+
+    result = execute_action(decision)
+    print(f"JARVIS: {result}")
+    speak(result)
+
+    if is_interrupted():
+        clear_interrupt()
+        return False
+
+    time.sleep(1.0)  # brief gap between chained actions
+    return True
+
+
 def main():
     start_hotkey_listener()
     print("JARVIS-Local — say 'Hey Jarvis' to activate. Ctrl+C to exit. Ctrl+Shift+X to interrupt.")
@@ -110,47 +159,21 @@ def main():
             print("JARVIS: I didn't catch that.")
             continue
 
-        decision = route(user_input)
-        print(f"[DEBUG] Router decided: {decision}")
+        actions = route(user_input)
+        print(f"[DEBUG] Router decided {len(actions)} action(s): {actions}")
 
-        if decision.get("action") == "stop_listening":
-            print("JARVIS: Shutting down. Goodbye.")
-            speak("Shutting down. Goodbye.")
+        should_exit = False
+        for decision in actions:
+            keep_going = process_single_action(decision)
+            if not keep_going:
+                if decision.get("action") == "stop_listening":
+                    should_exit = True
+                break  # stop processing further actions in this batch
+
+        if should_exit:
             break
 
-        if decision.get("action") in CONFIRMABLE_ACTIONS:
-            confirmation_question = build_confirmation_prompt(decision)
-            print(f"JARVIS: {confirmation_question}")
-            speak(confirmation_question)
-
-            if is_interrupted():
-                clear_interrupt()
-                continue
-
-            time.sleep(1.5)
-
-            confirmation_reply = listen()
-            print(f"You said: {confirmation_reply}")
-
-            if is_interrupted():
-                clear_interrupt()
-                continue
-
-            if not is_affirmative(confirmation_reply):
-                print("JARVIS: Okay, cancelled.")
-                speak("Okay, cancelled.")
-                time.sleep(1.5)
-                continue
-
-        result = execute_action(decision)
-        print(f"JARVIS: {result}")
-        speak(result)
-
-        if is_interrupted():
-            clear_interrupt()
-            continue
-
-        time.sleep(1.5)  # let speaker echo die down before re-arming wake word listener
+        time.sleep(0.5)  # let speaker echo die down before re-arming wake word listener
 
 
 if __name__ == "__main__":

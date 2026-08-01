@@ -2,13 +2,18 @@ import ollama
 import json
 
 MODEL = "llama3.1:8b"
+MAX_ACTIONS_PER_REQUEST = 5  # safety cap: prevents runaway chaining on ambiguous/malformed input
 
 ROUTER_SYSTEM_PROMPT = """You are the routing brain for JARVIS, a local voice assistant.
-Given a user's spoken request, decide which ONE action to take.
+Given a user's spoken request, decide which action(s) to take. A single request can
+require MULTIPLE actions if the user asks for more than one thing (e.g. "open youtube
+and take a screenshot").
 
 Respond with ONLY a JSON object, no other text, no markdown, no explanation. Format:
 
-{"action": "<action_name>", "args": {...}}
+{"actions": [{"action": "<action_name>", "args": {...}}, ...]}
+
+Even for a single action, always wrap it in the "actions" list with one item.
 
 Available actions:
 
@@ -17,7 +22,8 @@ Available actions:
 
 2. "open_target" — args: {"name": "<app_or_site_name>"}
    Use ONLY when the user clearly asks to open an app or website. name must be one of:
-   notepad, edge, youtube, instagram
+   notepad, edge, youtube, instagram, tiktok, twitch, twitter, x, reddit, discord,
+   gmail, netflix, spotify, google, facebook, whatsapp, github, chatgpt
 
 3. "send_discord_message" — args: {"contact_name": "<name>", "message": "<message text>"}
    Use ONLY when the user clearly asks to send someone a Discord message, and both a
@@ -33,51 +39,58 @@ Available actions:
    ALSO use this as the DEFAULT when the input is vague, unclear, too short to
    confidently interpret, or doesn't obviously request a real-world action.
    When defaulting here for unclear input, ask a short clarifying question in "reply"
-   instead of guessing.
+   instead of guessing. When used, it should be the ONLY action in the list.
 
 6. "stop_listening" — args: {}
    Use ONLY when the user clearly wants to end the conversation / shut down / stop
-   the assistant entirely — e.g. "quit", "stop", "shut down", "that's all for now",
-   "goodbye", "exit". Do NOT use this for the user just pausing or being unclear.
+   the assistant entirely. When used, it should be the ONLY action in the list.
 
 Examples:
 User: "take a screenshot"
-{"action": "take_screenshot", "args": {}}
+{"actions": [{"action": "take_screenshot", "args": {}}]}
 
 User: "open youtube please"
-{"action": "open_target", "args": {"name": "youtube"}}
+{"actions": [{"action": "open_target", "args": {"name": "youtube"}}]}
 
-User: "tell izbib on discord that im running late"
-{"action": "send_discord_message", "args": {"contact_name": "izbib", "message": "im running late"}}
+User: "open tiktok and dm izbib on discord saying hey"
+{"actions": [
+  {"action": "open_target", "args": {"name": "tiktok"}},
+  {"action": "send_discord_message", "args": {"contact_name": "izbib", "message": "hey"}}
+]}
+
+User: "take a screenshot and search who won the world cup"
+{"actions": [
+  {"action": "take_screenshot", "args": {}},
+  {"action": "search_and_summarize", "args": {"query": "who won the world cup"}}
+]}
 
 User: "who is the president of france"
-{"action": "search_and_summarize", "args": {"query": "president of france"}}
+{"actions": [{"action": "search_and_summarize", "args": {"query": "president of france"}}]}
 
 User: "hello"
-{"action": "general_chat", "args": {"reply": "Hey, what's up?"}}
+{"actions": [{"action": "general_chat", "args": {"reply": "Hey, what's up?"}}]}
 
 User: "clear"
-{"action": "general_chat", "args": {"reply": "Not sure what you mean by that — could you clarify?"}}
+{"actions": [{"action": "general_chat", "args": {"reply": "Not sure what you mean by that — could you clarify?"}}]}
 
 User: "quit"
-{"action": "stop_listening", "args": {}}
-
-User: "that's all thanks, shut down"
-{"action": "stop_listening", "args": {}}
+{"actions": [{"action": "stop_listening", "args": {}}]}
 
 Rules:
 - Always respond with valid JSON only — nothing before or after it.
-- Pick exactly one action per request.
+- Break multi-part requests into separate action entries, in the order the user said them.
 - NEVER guess a real-world action (screenshot, open, discord) just because nothing else fits.
   If unsure, use "general_chat" and ask for clarification instead.
-- If the request is ambiguous or missing info (e.g. "send a message" with no name/text),
-  use "general_chat" and ask a short clarifying question in "reply".
+- If the request is ambiguous or missing info, use "general_chat" and ask a short
+  clarifying question instead of guessing.
+- Keep the list to a maximum of 5 actions, even if the user lists more.
 """
 
 
-def route(user_input: str) -> dict:
-    """Asks the LLM to decide which action to take for the given input.
-    Returns a dict like {"action": "...", "args": {...}}."""
+def route(user_input: str) -> list:
+    """Asks the LLM to decide which action(s) to take for the given input.
+    Returns a list of dicts like [{"action": "...", "args": {...}}, ...],
+    capped at MAX_ACTIONS_PER_REQUEST for safety."""
 
     response = ollama.chat(
         model=MODEL,
@@ -92,6 +105,9 @@ def route(user_input: str) -> dict:
 
     try:
         parsed = json.loads(raw)
-        return parsed
-    except json.JSONDecodeError:
-        return {"action": "general_chat", "reply": "Sorry, I didn't quite catch that."}
+        actions = parsed.get("actions", [])
+        if not isinstance(actions, list) or not actions:
+            raise ValueError("No valid actions list in response")
+        return actions[:MAX_ACTIONS_PER_REQUEST]
+    except (json.JSONDecodeError, ValueError, AttributeError):
+        return [{"action": "general_chat", "args": {"reply": "Sorry, I didn't quite catch that."}}]

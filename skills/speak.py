@@ -6,6 +6,7 @@ import time
 from TTS.api import TTS
 import sounddevice as sd
 import soundfile as sf
+from skills.interrupt import is_interrupted
 
 SPEAKER = "Dionisio Schuyler"
 LANGUAGE = "en"
@@ -20,7 +21,8 @@ print("Voice model ready.")
 
 def speak(text: str) -> None:
     """Generates speech for the given text using JARVIS's voice and plays it
-    out loud. Blocks until playback finishes, plus a small safety buffer."""
+    out loud. Blocks until playback finishes, plus a small safety buffer.
+    Stops early if the global interrupt hotkey is pressed."""
     if not text or not text.strip():
         return
 
@@ -36,5 +38,13 @@ def speak(text: str) -> None:
 
     data, samplerate = sf.read(TEMP_AUDIO_PATH)
     sd.play(data, samplerate, device=OUTPUT_DEVICE)
-    sd.wait()  # block until playback finishes
+
+    # Poll instead of a single blocking sd.wait(), so we can stop early on interrupt
+    while sd.get_stream().active:
+        if is_interrupted():
+            sd.stop()
+            print("[INTERRUPT] Speech stopped.")
+            return
+        sd.sleep(50)
+
     time.sleep(POST_PLAYBACK_BUFFER)  # extra margin against driver/hardware buffering delay

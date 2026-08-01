@@ -1,6 +1,7 @@
 import sounddevice as sd
 import numpy as np
 from faster_whisper import WhisperModel
+from skills.interrupt import is_interrupted
 
 SAMPLE_RATE = 16000
 CHUNK_SIZE = 1280          # 80ms chunks
@@ -21,7 +22,8 @@ def _rms(chunk: np.ndarray) -> float:
 
 def listen() -> str:
     """Records audio until the user stops talking (silence-based), then
-    transcribes it using Whisper. Returns the transcribed text (may be empty)."""
+    transcribes it using Whisper. Returns the transcribed text (may be empty).
+    Stops early if the global interrupt hotkey is pressed."""
 
     print("Listening... (speak now, will stop automatically after you pause)")
 
@@ -33,6 +35,10 @@ def listen() -> str:
 
     with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16", blocksize=CHUNK_SIZE, device=INPUT_DEVICE) as stream:
         for _ in range(max_chunks):
+            if is_interrupted():
+                print("[INTERRUPT] Listening stopped.")
+                return ""
+
             chunk, _ = stream.read(CHUNK_SIZE)
             chunk = chunk[:, 0]
             recorded_chunks.append(chunk)

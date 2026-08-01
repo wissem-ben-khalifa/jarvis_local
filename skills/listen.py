@@ -20,9 +20,15 @@ def _rms(chunk: np.ndarray) -> float:
     return np.sqrt(np.mean(chunk.astype(np.float32) ** 2))
 
 
-def listen() -> str:
+def listen(max_wait_for_speech: float = MAX_RECORD_SECONDS) -> str:
     """Records audio until the user stops talking (silence-based), then
     transcribes it using Whisper. Returns the transcribed text (may be empty).
+
+    max_wait_for_speech: how long to wait for the user to START talking before
+    giving up (returns ""). Once they start, normal silence-based stopping applies.
+    Use a short value (e.g. 5-6s) for follow-up turns in an ongoing conversation,
+    and the default (longer) for the first command right after a wake word.
+
     Stops early if the global interrupt hotkey is pressed."""
 
     print("Listening... (speak now, will stop automatically after you pause)")
@@ -30,8 +36,10 @@ def listen() -> str:
     recorded_chunks = []
     silent_chunks_in_a_row = 0
     silence_chunks_needed = int(SILENCE_DURATION * SAMPLE_RATE / CHUNK_SIZE)
-    max_chunks = int(MAX_RECORD_SECONDS * SAMPLE_RATE / CHUNK_SIZE)
+    wait_for_speech_chunks = int(max_wait_for_speech * SAMPLE_RATE / CHUNK_SIZE)
+    max_chunks = int(MAX_RECORD_SECONDS * SAMPLE_RATE / CHUNK_SIZE)  # hard cap once talking starts
     started_talking = False
+    chunks_waited = 0
 
     with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16", blocksize=CHUNK_SIZE, device=INPUT_DEVICE) as stream:
         for _ in range(max_chunks):
@@ -50,6 +58,11 @@ def listen() -> str:
                 silent_chunks_in_a_row = 0
             else:
                 silent_chunks_in_a_row += 1
+                if not started_talking:
+                    chunks_waited += 1
+                    if chunks_waited >= wait_for_speech_chunks:
+                        print("No speech detected, giving up.")
+                        return ""
 
             # Only stop on silence AFTER the person has actually started talking
             if started_talking and silent_chunks_in_a_row >= silence_chunks_needed:

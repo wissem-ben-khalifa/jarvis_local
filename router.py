@@ -51,6 +51,11 @@ Available actions:
    "can you see what this says". If no specific question is implied, use a generic
    question like "Describe what's currently on the screen."
 
+8. "remember_fact" — args: {"fact": "<the fact to remember, rephrased clearly>"}
+   Use ONLY when the user explicitly asks JARVIS to remember/store something for later
+   — e.g. "remember that my favorite color is blue", "remember I have a meeting Friday".
+   Rephrase the fact as a clear, standalone statement (not "remember that X" — just "X").
+
 Examples:
 User: "take a screenshot"
 {"actions": [{"action": "take_screenshot", "args": {}}]}
@@ -88,6 +93,12 @@ User: "what's on my screen right now"
 User: "can you read this error message for me"
 {"actions": [{"action": "see_screen", "args": {"question": "Read and explain any error message visible on the screen."}}]}
 
+User: "remember that my favorite color is blue"
+{"actions": [{"action": "remember_fact", "args": {"fact": "My favorite color is blue."}}]}
+
+User: "remember I have a dentist appointment on Friday"
+{"actions": [{"action": "remember_fact", "args": {"fact": "I have a dentist appointment on Friday."}}]}
+
 Rules:
 - Always respond with valid JSON only — nothing before or after it.
 - Break multi-part requests into separate action entries, in the order the user said them.
@@ -99,17 +110,27 @@ Rules:
 """
 
 
-def route(user_input: str) -> list:
+def route(user_input: str, memory_context: str = "") -> list:
     """Asks the LLM to decide which action(s) to take for the given input.
+    If memory_context is provided, it's given to the LLM as background knowledge
+    about the user, which can inform general_chat replies.
     Returns a list of dicts like [{"action": "...", "args": {...}}, ...],
     capped at MAX_ACTIONS_PER_REQUEST for safety."""
 
+    messages = [{"role": "system", "content": ROUTER_SYSTEM_PROMPT}]
+
+    if memory_context:
+        messages.append({
+            "role": "system",
+            "content": f"Relevant things you know about the user from memory:\n{memory_context}\n"
+                       f"Use this naturally if relevant to the request, don't force it in."
+        })
+
+    messages.append({"role": "user", "content": user_input})
+
     response = ollama.chat(
         model=MODEL,
-        messages=[
-            {"role": "system", "content": ROUTER_SYSTEM_PROMPT},
-            {"role": "user", "content": user_input}
-        ],
+        messages=messages,
         format="json"
     )
 

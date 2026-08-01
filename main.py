@@ -6,12 +6,16 @@ from skills.open_app import open_target
 from skills.discord_send import send_discord_message
 from skills.web_search import search_and_summarize
 from skills.vision import see_screen
+from skills.memory import add_memory, search_memory
 from skills.speak import speak
 from skills.listen import listen
 from skills.wake_word import wait_for_wake_word
 from skills.interrupt import start_hotkey_listener, is_interrupted, clear_interrupt
 
 MODEL = "llama3.1:8b"
+
+# How long to wait for a follow-up command before requiring "Hey Jarvis" again
+FOLLOW_UP_WAIT_SECONDS = 6.0
 
 # Actions that require explicit voice confirmation before running, since they have
 # real-world, hard-to-undo effects (sending messages, etc.)
@@ -80,6 +84,13 @@ def execute_action(decision: dict) -> str:
     elif action == "see_screen":
         return see_screen(args.get("question", "Describe what's currently on the screen."))
 
+    elif action == "remember_fact":
+        fact = args.get("fact", "")
+        if fact:
+            add_memory(fact)
+            return "Got it, I'll remember that."
+        return "I didn't catch what to remember."
+
     elif action == "general_chat":
         return args.get("reply", "I'm not sure how to respond to that.")
 
@@ -135,6 +146,26 @@ def process_single_action(decision: dict) -> bool:
     return True
 
 
+def handle_command(user_input: str) -> bool:
+    """Routes and processes one full user command (which may expand into multiple
+    chained actions). Returns False if the program should exit (stop_listening)."""
+
+    relevant_memories = search_memory(user_input)
+    memory_context = "\n".join(f"- {m}" for m in relevant_memories) if relevant_memories else ""
+
+    actions = route(user_input, memory_context=memory_context)
+    print(f"[DEBUG] Router decided {len(actions)} action(s): {actions}")
+
+    for decision in actions:
+        keep_going = process_single_action(decision)
+        if not keep_going:
+            if decision.get("action") == "stop_listening":
+                return False
+            break  # stop processing further actions in this batch, but keep the program running
+
+    return True
+
+
 def main():
     start_hotkey_listener()
     print("JARVIS-Local — say 'Hey Jarvis' to activate. Ctrl+C to exit. Ctrl+Shift+X to interrupt.")
@@ -152,32 +183,40 @@ def main():
 
         time.sleep(1.5)  # let speaker echo die down before listening for command
 
-        user_input = listen()
-        print(f"You said: {user_input}")
+        # Inner conversation loop: keep handling commands without requiring
+        # "Hey Jarvis" again, as long as the user keeps talking within the
+        # follow-up window. Falls back to wake-word mode on silence.
+        in_conversation = True
+        first_turn = True
 
-        if is_interrupted():
-            clear_interrupt()
-            continue
+        while in_conversation:
+            wait_time = 15.0 if first_turn else FOLLOW_UP_WAIT_SECONDS
+            first_turn = False
 
-        if not user_input:
-            print("JARVIS: I didn't catch that.")
-            continue
+            user_input = listen(max_wait_for_speech=wait_time)
+            print(f"You said: {user_input}")
 
-        actions = route(user_input)
-        print(f"[DEBUG] Router decided {len(actions)} action(s): {actions}")
+            if is_interrupted():
+                clear_interrupt()
+                in_conversation = False
+                continue
 
-        should_exit = False
-        for decision in actions:
-            keep_going = process_single_action(decision)
-            if not keep_going:
-                if decision.get("action") == "stop_listening":
-                    should_exit = True
-                break  # stop processing further actions in this batch
+            if not user_input:
+                print("Ending conversation, back to wake-word mode.")
+                in_conversation = False
+                continue
 
-        if should_exit:
-            break
+            should_continue_program = handle_command(user_input)
 
-        time.sleep(0.5)  # let speaker echo die down before re-arming wake word listener
+            if not should_continue_program:
+                return  # stop_listening was triggered, exit the whole program
+
+            if is_interrupted():
+                clear_interrupt()
+                in_conversation = False
+                continue
+
+            time.sleep(0.5)  # let speaker echo die down before listening for the next turn
 
 
 if __name__ == "__main__":

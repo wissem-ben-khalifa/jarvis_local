@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QWidget, QApplication
-from PySide6.QtCore import Qt, QTimer, QPointF
+from PySide6.QtCore import Qt, QTimer, QPointF, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QPainter, QColor, QRadialGradient
 import math
 
@@ -34,6 +34,27 @@ class FloatingOrb(QWidget):
         self.timer = QTimer()
         self.timer.timeout.connect(self._animate)
         self.timer.start(30)
+
+        self._anim = None
+
+    def animate_show(self):
+        self.setWindowOpacity(0.0)
+        self.show()
+        self._anim = QPropertyAnimation(self, b"windowOpacity")
+        self._anim.setDuration(320)
+        self._anim.setStartValue(0.0)
+        self._anim.setEndValue(1.0)
+        self._anim.setEasingCurve(QEasingCurve.OutBack)
+        self._anim.start()
+
+    def animate_hide(self):
+        self._anim = QPropertyAnimation(self, b"windowOpacity")
+        self._anim.setDuration(180)
+        self._anim.setStartValue(1.0)
+        self._anim.setEndValue(0.0)
+        self._anim.setEasingCurve(QEasingCurve.InCubic)
+        self._anim.finished.connect(self.hide)
+        self._anim.start()
 
     def set_state(self, state: str, label: str = ""):
         self.state = state if state in STATE_COLORS else "idle"

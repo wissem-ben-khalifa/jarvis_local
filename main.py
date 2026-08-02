@@ -11,6 +11,7 @@ from skills.speak import speak
 from skills.listen import listen
 from skills.wake_word import wait_for_wake_word
 from skills.interrupt import start_hotkey_listener, is_interrupted, clear_interrupt
+from skills import ui_events
 
 MODEL = "llama3.1:8b"
 
@@ -62,6 +63,15 @@ def get_wake_greeting() -> str:
     return response["message"]["content"].strip()
 
 
+def speak_and_notify(text: str):
+    """Speaks text aloud AND notifies the UI (if connected) so the orb/log
+    stay in sync regardless of whether this came from voice or typed input."""
+    ui_events.emit_state("speaking", "Speaking")
+    ui_events.emit_log("JARVIS", text)
+    speak(text)
+    ui_events.emit_state("idle", "Standby")
+
+
 def execute_action(decision: dict) -> str:
     action = decision.get("action")
     args = decision.get("args", {})
@@ -107,13 +117,14 @@ def process_single_action(decision: dict) -> bool:
 
     if action == "stop_listening":
         print("JARVIS: Shutting down. Goodbye.")
-        speak("Shutting down. Goodbye.")
+        speak_and_notify("Shutting down. Goodbye.")
+        ui_events.emit_shutdown()
         return False
 
     if action in CONFIRMABLE_ACTIONS:
         confirmation_question = build_confirmation_prompt(decision)
         print(f"JARVIS: {confirmation_question}")
-        speak(confirmation_question)
+        speak_and_notify(confirmation_question)
 
         if is_interrupted():
             clear_interrupt()
@@ -121,6 +132,7 @@ def process_single_action(decision: dict) -> bool:
 
         time.sleep(1.5)
 
+        ui_events.emit_state("listening", "Listening")
         confirmation_reply = listen()
         print(f"You said: {confirmation_reply}")
 
@@ -130,13 +142,14 @@ def process_single_action(decision: dict) -> bool:
 
         if not is_affirmative(confirmation_reply):
             print("JARVIS: Okay, cancelled.")
-            speak("Okay, cancelled.")
+            speak_and_notify("Okay, cancelled.")
             time.sleep(1.5)
             return True  # skip this action, but continue with any remaining ones
 
+    ui_events.emit_state("processing", "Processing")
     result = execute_action(decision)
     print(f"JARVIS: {result}")
-    speak(result)
+    speak_and_notify(result)
 
     if is_interrupted():
         clear_interrupt()
@@ -149,6 +162,9 @@ def process_single_action(decision: dict) -> bool:
 def handle_command(user_input: str) -> bool:
     """Routes and processes one full user command (which may expand into multiple
     chained actions). Returns False if the program should exit (stop_listening)."""
+
+    ui_events.emit_log("You", user_input)
+    ui_events.emit_state("processing", "Processing")
 
     relevant_memories = search_memory(user_input)
     memory_context = "\n".join(f"- {m}" for m in relevant_memories) if relevant_memories else ""
@@ -166,16 +182,42 @@ def handle_command(user_input: str) -> bool:
     return True
 
 
+def handle_text_input(text: str) -> None:
+    """Entry point for commands typed into the UI (not spoken). Reuses the exact
+    same routing/execution pipeline as voice, so behavior is identical either way.
+    Note: 'stop_listening' from text input does NOT close the app — that only
+    makes sense for the voice loop. It's treated as a no-op acknowledgment here."""
+    if not text or not text.strip():
+        return
+    ui_events.emit_log("You", text.strip())
+    ui_events.emit_state("processing", "Processing")
+
+    relevant_memories = search_memory(text.strip())
+    memory_context = "\n".join(f"- {m}" for m in relevant_memories) if relevant_memories else ""
+    actions = route(text.strip(), memory_context=memory_context)
+    print(f"[DEBUG] Router decided {len(actions)} action(s): {actions}")
+
+    for decision in actions:
+        if decision.get("action") == "stop_listening":
+            speak_and_notify("Shutting down. Goodbye.")
+            ui_events.emit_shutdown()
+            return
+        keep_going = process_single_action(decision)
+        if not keep_going:
+            break
+
+
 def main():
     start_hotkey_listener()
     print("JARVIS-Local — say 'Hey Jarvis' to activate. Ctrl+C to exit. Ctrl+Shift+X to interrupt.")
 
     while True:
         wait_for_wake_word()
+        ui_events.emit_state("processing", "Waking up")
 
         greeting = get_wake_greeting()
         print(f"JARVIS: {greeting}")
-        speak(greeting)
+        speak_and_notify(greeting)
 
         if is_interrupted():
             clear_interrupt()
@@ -193,6 +235,7 @@ def main():
             wait_time = 15.0 if first_turn else FOLLOW_UP_WAIT_SECONDS
             first_turn = False
 
+            ui_events.emit_state("listening", "Listening")
             user_input = listen(max_wait_for_speech=wait_time)
             print(f"You said: {user_input}")
 
@@ -203,6 +246,7 @@ def main():
 
             if not user_input:
                 print("Ending conversation, back to wake-word mode.")
+                ui_events.emit_state("idle", "Standby")
                 in_conversation = False
                 continue
 

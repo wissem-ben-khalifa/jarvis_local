@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>J.A.R.V.I.S.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #04070a;
+    --panel-bg: rgba(8, 18, 26, 0.55);
+    --panel-border: rgba(90, 210, 230, 0.25);
+    --accent: #4fd8f0;
+    --accent-bright: #b6f3ff;
+    --accent-dim: rgba(79, 216, 240, 0.35);
+    --text-primary: #d9f5fb;
+    --text-dim: #5c7f89;
+    --danger: #ff5f6d;
+    --warn: #ffb454;
+    --ok: #4fe0a0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    overflow: hidden;
+  }
+
+  body {
+    background:
+      radial-gradient(ellipse at 50% 40%, rgba(79,216,240,0.06), transparent 60%),
+      linear-gradient(180deg, #030507 0%, #04070a 100%);
+    position: relative;
+  }
+
+  body::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,216,240,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,216,240,0.035) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at 50% 45%, black 10%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  /* ---------- TOP BAR ---------- */
+  .topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    border-bottom: 1px solid rgba(79,216,240,0.12);
+    background: linear-gradient(180deg, rgba(6,14,20,0.7), transparent);
+    z-index: 10;
+  }
+
+  .brand {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 19px;
+    letter-spacing: 6px;
+    color: var(--accent-bright);
+    text-shadow: 0 0 14px var(--accent-dim);
+  }
+  .brand span { color: var(--accent); }
+
+  .nav { display: flex; gap: 34px; }
+
+  .nav a {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-decoration: none;
+    padding-bottom: 6px;
+    border-bottom: 2px solid transparent;
+    transition: color .2s ease, border-color .2s ease;
+    cursor: pointer;
+  }
+
+  .nav a.active, .nav a:hover {
+    color: var(--accent-bright);
+    border-color: var(--accent);
+  }
+
+  /* ---------- VIEWS ---------- */
+  .view {
+    position: absolute;
+    inset: 0;
+    display: none;
+  }
+  .view.active { display: block; }
+
+  /* ---------- PANELS (dashboard view) ---------- */
+  .panel {
+    position: absolute;
+    width: 250px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    backdrop-filter: blur(6px);
+    padding: 14px 16px 16px;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .panel-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 8px var(--ok);
+  }
+  .panel-dot.warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+  .panel-dot.off { background: var(--text-dim); box-shadow: none; }
+
+  .panel-state { top: 96px; left: 28px; }
+
+  .state-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 0;
+    border-top: 1px solid rgba(79,216,240,0.08);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .state-row:first-of-type { border-top: none; }
+
+  .state-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 2px;
+  }
+  .state-value.ok { color: var(--ok); background: rgba(79,224,160,0.1); }
+  .state-value.warn { color: var(--warn); background: rgba(255,180,84,0.1); }
+  .state-value.idle { color: var(--text-dim); background: rgba(255,255,255,0.04); }
+
+  .panel-info { top: 96px; right: 28px; }
+
+  .clock {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--accent-bright);
+    text-shadow: 0 0 16px var(--accent-dim);
+    line-height: 1;
+  }
+  .clock small { font-size: 15px; color: var(--accent); }
+
+  .date-line {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  .skills-grid {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .skill-chip {
+    font-size: 11px;
+    padding: 6px 8px;
+    border: 1px solid rgba(79,216,240,0.15);
+    border-radius: 3px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .skill-chip .panel-dot { width: 5px; height: 5px; }
+
+  .panel-activity {
+    bottom: 28px; left: 28px;
+    width: 340px;
+    max-height: 230px;
+  }
+
+  .activity-current {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: var(--bg);
+    background: var(--accent);
+    padding: 6px 10px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-bottom: 10px;
+    box-shadow: 0 0 14px var(--accent-dim);
+  }
+
+  .log {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.9;
+    max-height: 140px;
+    overflow-y: auto;
+  }
+  .log .t { color: rgba(92,127,137,0.6); margin-right: 8px; font-family: 'Orbitron'; font-size: 9px; }
+  .log .you { color: var(--accent-bright); }
+  .log .jarvis { color: var(--ok); }
+
+  /* ---------- CENTER ORB ---------- */
+  .orb-wrap {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -60%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .orb-ring {
+    width: 260px; height: 260px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .orb-ring::before {
+    content: "";
+    position: absolute;
+    inset: -18px;
+    border-radius: 50%;
+    border: 1px solid rgba(79,216,240,0.15);
+    animation: spin 22s linear infinite;
+  }
+  .orb-ring::after {
+    content: "";
+    position: absolute;
+    inset: -34px;
+    border-radius: 50%;
+    border: 1px dashed rgba(79,216,240,0.08);
+    animation: spin 40s linear infinite reverse;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #orbCanvas { border-radius: 50%; }
+
+  .orb-status {
+    margin-top: 26px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-shadow: 0 0 10px var(--accent-dim);
+  }
+
+  .orb-greeting { margin-top: 10px; text-align: center; }
+  .orb-greeting .line1 { font-size: 22px; font-weight: 600; color: var(--text-primary); }
+  .orb-greeting .line2 { font-size: 13px; color: var(--text-dim); margin-top: 2px; letter-spacing: 1px; }
+
+  /* ---------- COMMAND BAR ---------- */
+  .cmdbar {
+    position: absolute;
+    bottom: 28px; left: 50%;
+    transform: translateX(-50%);
+    width: 460px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 26px;
+    padding: 12px 22px;
+    backdrop-filter: blur(6px);
+  }
+
+  .cmdbar input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+  .cmdbar input::placeholder { color: var(--text-dim); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: rgba(79,216,240,0.25); border-radius: 4px; }
+
+  /* ---------- SKILLS VIEW ---------- */
+  .content-page {
+    position: absolute;
+    top: 100px; left: 28px; right: 28px; bottom: 28px;
+    overflow-y: auto;
+  }
+
+  .page-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 16px;
+    letter-spacing: 3px;
+    color: var(--accent-bright);
+    margin-bottom: 22px;
+    text-shadow: 0 0 10px var(--accent-dim);
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 18px;
+    backdrop-filter: blur(6px);
+  }
+
+  .card-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    letter-spacing: 1px;
+    color: var(--accent-bright);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  /* ---------- MEMORY VIEW ---------- */
+  .memory-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .memory-item {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+
+  .empty-note {
+    color: var(--text-dim);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  /* ---------- SETTINGS VIEW ---------- */
+  .settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(79,216,240,0.08);
+    max-width: 500px;
+  }
+  .settings-row .label { font-size: 13px; letter-spacing: 1px; }
+  .settings-value { color: var(--accent); font-size: 13px; font-family: 'Orbitron'; }
+  .shutdown-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--danger);
+    background: rgba(255, 95, 109, 0.08);
+    border: 1px solid rgba(255, 95, 109, 0.35);
+    border-radius: 3px;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: background .2s ease;
+  }
+  .shutdown-btn:hover {
+    background: rgba(255, 95, 109, 0.18);
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">J<span>.</span>A<span>.</span>R<span>.</span>V<span>.</span>I<span>.</span>S<span>.</span></div>
+    <div class="nav">
+      <a data-view="dashboard" class="active">Dashboard</a>
+      <a data-view="skills">Skills</a>
+      <a data-view="memory">Memory</a>
+      <a data-view="settings">Settings</a>
+    </div>
+    <button class="shutdown-btn" id="shutdownBtn">Shutdown</button>
+  </div>
+
+  <!-- ===== DASHBOARD VIEW ===== -->
+  <div class="view active" id="view-dashboard">
+
+    <div class="panel panel-state">
+      <div class="panel-header">
+        <span class="label">System State</span>
+        <span class="panel-dot" id="stateDot"></span>
+      </div>
+      <div class="state-row"><span>Wake word</span><span class="state-value ok">ARMED</span></div>
+      <div class="state-row"><span>Listening</span><span class="state-value idle" id="listenState">IDLE</span></div>
+      <div class="state-row"><span>Speaking</span><span class="state-value idle" id="speakState">IDLE</span></div>
+      <div class="state-row"><span>Ollama</span><span class="state-value ok">CONNECTED</span></div>
+      <div class="state-row"><span>Memory</span><span class="state-value ok">SYNCED</span></div>
+    </div>
+
+    <div class="panel panel-info">
+      <div class="panel-header">
+        <span class="label">System Info</span>
+        <span class="panel-dot"></span>
+      </div>
+      <div class="clock" id="clock">00:00<small>:00</small></div>
+      <div class="date-line" id="dateLine">—</div>
+      <div class="skills-grid">
+        <div class="skill-chip"><span class="panel-dot"></span>Screenshot</div>
+        <div class="skill-chip"><span class="panel-dot"></span>Open App</div>
+        <div class="skill-chip"><span class="panel-dot"></span>Discord</div>
+        <div class="skill-chip"><span class="panel-dot"></span>Web Search</div>
+        <div class="skill-chip"><span class="panel-dot"></span>Vision</div>
+        <div class="skill-chip"><span class="panel-dot"></span>Memory</div>
+      </div>
+    </div>
+
+    <div class="orb-wrap">
+      <div class="orb-ring">
+        <canvas id="orbCanvas" width="220" height="220"></canvas>
+      </div>
+      <div class="orb-status" id="orbStatus">STANDBY</div>
+      <div class="orb-greeting">
+        <div class="line1" id="greetLine1">Good to see you.</div>
+        <div class="line2" id="greetLine2">Say "Hey Jarvis" or type below to begin.</div>
+      </div>
+    </div>
+
+    <div class="panel panel-activity">
+      <div class="panel-header">
+        <span class="label">Activity Monitor</span>
+        <span class="panel-dot"></span>
+      </div>
+      <div class="activity-current" id="activityCurrent">STANDBY</div>
+      <div class="log" id="logList"></div>
+    </div>
+
+    <div class="cmdbar">
+      <input id="cmdInput" type="text" placeholder="Type a command or say &quot;Hey Jarvis&quot;...">
+    </div>
+  </div>
+
+  <!-- ===== SKILLS VIEW ===== -->
+  <div class="view" id="view-skills">
+    <div class="content-page">
+      <div class="page-title">AVAILABLE SKILLS</div>
+      <div class="card-grid" id="skillsGrid"></div>
+    </div>
+  </div>
+
+  <!-- ===== MEMORY VIEW ===== -->
+  <div class="view" id="view-memory">
+    <div class="content-page">
+      <div class="page-title">LONG-TERM MEMORY</div>
+      <div class="memory-list" id="memoryList">
+        <div class="empty-note">Loading memories...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SETTINGS VIEW ===== -->
+  <div class="view" id="view-settings">
+    <div class="content-page">
+      <div class="page-title">SETTINGS</div>
+      <div class="settings-row"><span class="label">LLM Model</span><span class="settings-value">llama3.1:8b</span></div>
+      <div class="settings-row"><span class="label">Vision Model</span><span class="settings-value">llava</span></div>
+      <div class="settings-row"><span class="label">Voice</span><span class="settings-value">Dionisio Schuyler</span></div>
+      <div class="settings-row"><span class="label">Wake Word</span><span class="settings-value">Hey Jarvis</span></div>
+      <div class="settings-row"><span class="label">Interrupt Hotkey</span><span class="settings-value">Ctrl+Shift+X</span></div>
+    </div>
+  </div>
+
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script>
+// ---------- QWebChannel bridge connection ----------
+let bridge = null;
+if (typeof qt !== 'undefined') {
+  new QWebChannel(qt.webChannelTransport, function(channel) {
+    bridge = channel.objects.bridge;
+    bridge.stateChanged.connect(setState);
+    bridge.logAdded.connect(addLogLine);
+  });
+}
+
+// ---------- Tab navigation ----------
+document.querySelectorAll('.nav a').forEach(link => {
+  link.addEventListener('click', () => {
+    document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    link.classList.add('active');
+    document.getElementById('view-' + link.dataset.view).classList.add('active');
+    if (link.dataset.view === 'memory') loadMemories();
+  });
+});
+
+// ---------- Skills tab content ----------
+const SKILLS = [
+  { name: "Screenshot", desc: "Captures the screen on request and saves it locally." },
+  { name: "Open App / Website", desc: "Launches desktop apps or opens websites by name." },
+  { name: "Discord Message", desc: "Sends a Discord DM via UI automation, with voice confirmation first." },
+  { name: "Web Search", desc: "Searches the web and gives a short, confident spoken answer." },
+  { name: "Vision", desc: "Looks at the screen using a local multimodal model (llava) and describes it." },
+  { name: "Memory", desc: "Remembers facts long-term using ChromaDB, recalled automatically when relevant." }
+];
+
+const skillsGrid = document.getElementById('skillsGrid');
+SKILLS.forEach(s => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<div class="card-title"><span class="panel-dot"></span>${s.name}</div><div class="card-desc">${s.desc}</div>`;
+  skillsGrid.appendChild(card);
+});
+
+// ---------- Memory tab content ----------
+function loadMemories() {
+  const list = document.getElementById('memoryList');
+  if (!bridge) {
+    list.innerHTML = '<div class="empty-note">Not connected to backend.</div>';
+    return;
+  }
+  bridge.getMemories(function(result) {
+    const memories = JSON.parse(result);
+    if (!memories.length) {
+      list.innerHTML = '<div class="empty-note">No memories stored yet.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    memories.forEach(m => {
+      const item = document.createElement('div');
+      item.className = 'memory-item';
+      item.textContent = m;
+      list.appendChild(item);
+    });
+  });
+}
+
+// ---------- Clock ----------
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+  document.getElementById('clock').innerHTML = `${h}:${m}<small>:${s}</small>`;
+  const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  document.getElementById('dateLine').textContent =
+    `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ---------- Orb canvas ----------
+const canvas = document.getElementById('orbCanvas');
+const ctx = canvas.getContext('2d');
+const CX = 110, CY = 110;
+
+let state = "idle";
+let t = 0;
+
+function drawOrb() {
+  t += 0.02;
+  ctx.clearRect(0, 0, 220, 220);
+
+  let baseRadius = 70;
+  let pulse = Math.sin(t * (state === "speaking" ? 6 : state === "listening" ? 3 : 1)) * 6;
+  let radius = baseRadius + pulse * (state === "idle" ? 0.4 : 1);
+
+  const colors = {
+    idle:       ["#1a4f5c", "#4fd8f0"],
+    listening:  ["#1a6b5c", "#4ff0c0"],
+    speaking:   ["#5c3f1a", "#f0b04f"],
+    processing: ["#4a1a5c", "#c04ff0"]
+  };
+  const [dark, bright] = colors[state] || colors.idle;
+
+  const grad = ctx.createRadialGradient(CX, CY, 0, CX, CY, radius);
+  grad.addColorStop(0, "#eafcff");
+  grad.addColorStop(0.35, bright);
+  grad.addColorStop(1, dark + "00");
+
+  ctx.beginPath();
+  ctx.arc(CX, CY, radius, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * Math.PI * 2 + t * 0.3;
+    const r = radius * 0.55 * (0.3 + 0.7 * Math.abs(Math.sin(t + i)));
+    const x = CX + Math.cos(a) * r;
+    const y = CY + Math.sin(a) * r;
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillRect(x, y, 1.4, 1.4);
+  }
+
+  requestAnimationFrame(drawOrb);
+}
+drawOrb();
+
+// ---------- State + log handlers (called by Python via QWebChannel signals) ----------
+function setState(newState, label) {
+  state = newState;
+  document.getElementById('orbStatus').textContent = label.toUpperCase();
+  document.getElementById('activityCurrent').textContent = label.toUpperCase();
+
+  document.getElementById('listenState').className = 'state-value idle';
+  document.getElementById('speakState').className = 'state-value idle';
+  document.getElementById('listenState').textContent = 'IDLE';
+  document.getElementById('speakState').textContent = 'IDLE';
+
+  if (newState === 'listening') {
+    document.getElementById('listenState').className = 'state-value ok';
+    document.getElementById('listenState').textContent = 'ACTIVE';
+  }
+  if (newState === 'speaking') {
+    document.getElementById('speakState').className = 'state-value warn';
+    document.getElementById('speakState').textContent = 'ACTIVE';
+  }
+}
+
+function addLogLine(who, text) {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-GB');
+  const log = document.getElementById('logList');
+  const line = document.createElement('div');
+  line.innerHTML = `<span class="t">${time}</span><span class="${who === 'You' ? 'you' : 'jarvis'}">${who}:</span> ${text}`;
+  log.prepend(line);
+}
+
+// ---------- Shutdown button ----------
+document.getElementById('shutdownBtn').addEventListener('click', () => {
+  if (bridge && confirm('Shut down JARVIS?')) {
+    bridge.requestShutdown();
+  }
+});
+
+// ---------- Command bar: sends text to Python backend ----------
+document.getElementById('cmdInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.value.trim()) {
+    const text = e.target.value.trim();
+    e.target.value = '';
+    if (bridge) {
+      bridge.sendText(text);
+    } else {
+      addLogLine('JARVIS', 'Not connected to backend yet.');
+    }
+  }
+});
+</script>
+</body>
+</html>

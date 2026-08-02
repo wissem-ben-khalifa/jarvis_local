@@ -42,8 +42,11 @@ Available actions:
    instead of guessing. When used, it should be the ONLY action in the list.
 
 6. "stop_listening" — args: {}
-   Use ONLY when the user clearly wants to end the conversation / shut down / stop
-   the assistant entirely. When used, it should be the ONLY action in the list.
+   Use whenever the user says a farewell or shutdown phrase, even casually or
+   mid-sentence — e.g. "goodbye", "bye", "see you", "shut down", "shutdown",
+   "stop", "quit", "exit", "that's all", "I'm done". Treat any clear farewell
+   as a genuine shutdown request, not small talk. When used, it should be the
+   ONLY action in the list.
 
 7. "see_screen" — args: {"question": "<what to look for or ask about the screen>"}
    Use when the user asks JARVIS to look at, describe, read, or check something on
@@ -85,6 +88,12 @@ User: "clear"
 {"actions": [{"action": "general_chat", "args": {"reply": "Not sure what you mean by that — could you clarify?"}}]}
 
 User: "quit"
+{"actions": [{"action": "stop_listening", "args": {}}]}
+
+User: "I said goodbye"
+{"actions": [{"action": "stop_listening", "args": {}}]}
+
+User: "okay bye jarvis"
 {"actions": [{"action": "stop_listening", "args": {}}]}
 
 User: "what's on my screen right now"

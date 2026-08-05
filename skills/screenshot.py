@@ -1,8 +1,9 @@
 import pyautogui
 import os
 from datetime import datetime
+from resource_path import writable_data_path
 
-SCREENSHOT_DIR = "screenshots"
+SCREENSHOT_DIR = writable_data_path("screenshots")
 
 def take_screenshot() -> str:
     """Takes a screenshot and saves it to the screenshots folder.

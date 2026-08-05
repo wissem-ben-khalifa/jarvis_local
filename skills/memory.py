@@ -1,9 +1,10 @@
 import chromadb
 import ollama
 import uuid
+from resource_path import writable_data_path
 
 EMBEDDING_MODEL = "nomic-embed-text"
-DB_PATH = "memory_db"
+DB_PATH = writable_data_path("memory_db")
 COLLECTION_NAME = "jarvis_memory"
 
 _client = chromadb.PersistentClient(path=DB_PATH)

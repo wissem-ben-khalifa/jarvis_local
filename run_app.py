@@ -14,9 +14,10 @@ from PySide6.QtCore import (
 
 from ui.floating_orb import FloatingOrb
 from ui.splash import SplashScreen
+from resource_path import resource_path
 
-DASHBOARD_PATH = os.path.join(os.path.dirname(__file__), "ui", "dashboard.html")
-ASSETS_DIR = os.path.join(os.path.dirname(__file__), "ui", "assets")
+DASHBOARD_PATH = resource_path(os.path.join("ui", "dashboard.html"))
+ASSETS_DIR = resource_path(os.path.join("ui", "assets"))
 BOOT_INTRO_PATH = os.path.join(ASSETS_DIR, "boot_intro.wav")
 BOOT_LOOP_PATH = os.path.join(ASSETS_DIR, "boot_loop.wav")
 BOOT_READY_PATH = os.path.join(ASSETS_DIR, "boot_ready.wav")

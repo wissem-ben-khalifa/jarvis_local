@@ -2,10 +2,11 @@ import ollama
 import base64
 import os
 from datetime import datetime
+from resource_path import writable_data_path
 
 VISION_MODEL = "llava"
 SUMMARY_MODEL = "llama3.1:8b"
-SCREENSHOT_DIR = "screenshots"
+SCREENSHOT_DIR = writable_data_path("screenshots")
 
 
 def _take_screenshot_for_vision() -> str:
